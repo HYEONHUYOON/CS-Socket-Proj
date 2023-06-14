@@ -9,7 +9,7 @@ namespace Client
     class TCPClient
     {
         public string SERVERIP;
-        const int SERVERPORT = 2222;
+        const int SERVERPORT = 2244;
         const int BUFSIZE = 512;
 
         int retval;
@@ -26,7 +26,7 @@ namespace Client
         {
             try
             {
-                sw = File.AppendText(@"C:\Users\윤현후\source\repos\Socket\Server\ClientLog.txt");
+                sw = File.AppendText(@"..\..\..\ClientLog.txt");
                 sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + " => " + $"{"CLIENT OPEN",-15}");
                 sw.Flush();
             }
@@ -72,14 +72,14 @@ namespace Client
             return len - left;
         }
 
-        public bool Connect(string IP)
+        public bool Connect(string IP,int port)
         {
             // 데이터 통신에 사용할 변수
             buf = new byte[BUFSIZE];
             try
             {
                 Console.WriteLine(IP);
-                var ipep = new IPEndPoint(IPAddress.Parse(IP), SERVERPORT);
+                var ipep = new IPEndPoint(IPAddress.Parse(IP), port);
                 // Connect()
                 sock.Connect(ipep);
                 
@@ -91,8 +91,9 @@ namespace Client
                 if (string.Compare(msg, "WELCOME", true) == 0)
                 {
                     StreamWriter welcome;
-                    welcome = File.AppendText(@"C:\Users\윤현후\source\repos\Socket\Client\Welcome.txt");
-                    welcome.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + " => " + $"{msg}");
+                    welcome = File.AppendText(@"..\..\..\Welcome.txt");
+                    welcome.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + " => "
+                  + $"{"RECEIVE",-15} IP : {ipep.Address,-15} PORT : {ipep.Port,-10} {msg}");
                     welcome.Flush();
                     welcome.Close();
                 }
@@ -101,7 +102,6 @@ namespace Client
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
                 return false;
             }
             return true;
@@ -123,14 +123,12 @@ namespace Client
                 retval = sock.Send(senddata, 0, size, SocketFlags.None);
                 Console.WriteLine(
                     "[TCP 클라이언트] {0}바이트를 보냈습니다.", retval);
-
-                return true;
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
-                return false;
+                return true;
             }
+            return false;
         }
 
         public bool Read()
@@ -141,7 +139,10 @@ namespace Client
 
                 // 데이터 받기
                 retval = sock.Receive(buf, 0, BUFSIZE, SocketFlags.None);
-                //if (retval == 0) break;
+                if (retval == 0)
+                {
+                    return true;
+                }
 
                 // 받은 데이터 출력
                 Console.WriteLine(
@@ -151,10 +152,9 @@ namespace Client
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
-                return false;
+                return true;
             }
-            return true;
+            return false;
         }
 
         public void Close()

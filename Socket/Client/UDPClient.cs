@@ -33,13 +33,16 @@ namespace Client
         string token1 = "2019";
         string token2 = "2703";
 
+
+        public int tcpPort = 0;
+
         JObject jsonData;
 
         public UDPClient()
         {
             try
             {
-                sw = File.AppendText(@"C:\Users\윤현후\source\repos\Socket\Client\ClientLog.txt");
+                sw = File.AppendText(@"..\..\..\ClientLog.txt");
                 sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + " => " + $"{"CLIENT OPEN",-15}");
                 sw.Flush();
             }
@@ -61,35 +64,43 @@ namespace Client
             buf = new byte[BUFSIZE];
         }
 
-        public void trySend(string IP,int PORT)
+        public bool trySend(string IP,int PORT)
         {
-            // 소켓 주소 객체 초기화
-            serveraddr = new IPEndPoint(IPAddress.Parse(IP), PORT);
-
-            //token  생성
-            Random random = new Random();
-            string[] randomNumber = new string[3];
-            for (int i = 0; i < 3; i++)
+            try
             {
-                randomNumber[i] = random.Next(1000, 10000).ToString();
+                // 소켓 주소 객체 초기화
+                serveraddr = new IPEndPoint(IPAddress.Parse(IP), PORT);
+
+                //token  생성
+                Random random = new Random();
+                string[] randomNumber = new string[3];
+                for (int i = 0; i < 3; i++)
+                {
+                    randomNumber[i] = random.Next(1000, 10000).ToString();
+                }
+                string token = randomNumber[0] + '-' + token1 + '-' + randomNumber[1] + '-' + token2 + '-' + randomNumber[2];
+
+                string tokenjson = "{\r\n    \"TOKEN\" : \"" + token + "\"\r\n}";
+                Console.WriteLine(tokenjson);
+
+                sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + " => "
+                     + $"{"SEND",-15} IP : {serveraddr.Address,-15} PORT : {serveraddr.Port,-10} TOKEN:{'\n'}{tokenjson}");
+                sw.Flush();
+
+                // 데이터 보내기 (최대 길이를 BUFSIZE로 제한)
+                byte[] senddata = Encoding.Default.GetBytes(tokenjson);
+                int size = senddata.Length;
+                if (size > BUFSIZE) size = BUFSIZE;
+                retval = sock.SendTo(senddata, 0, size,
+                    SocketFlags.None, serveraddr);
+                Console.WriteLine(
+                    "[UDP 클라이언트] {0}바이트를 보냈습니다.", retval);
             }
-            string token = randomNumber[0] + '-' + token1 + '-' + randomNumber[1] + '-' + token2 + '-' + randomNumber[2];
-
-            string tokenjson = "{\r\n    \"요청 TOKEN\" : \""+ token + "\"\r\n}";
-            Console.WriteLine(tokenjson);
-
-            sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + " => "
-                 + $"{"SEND",-15} IP : {serveraddr.Address,-15} PORT : {serveraddr.Port,-10} TOKEN:{'\n'}{tokenjson}");
-            sw.Flush();
-
-            // 데이터 보내기 (최대 길이를 BUFSIZE로 제한)
-            byte[] senddata = Encoding.Default.GetBytes(tokenjson);
-            int size = senddata.Length;
-            if (size > BUFSIZE) size = BUFSIZE;
-            retval = sock.SendTo(senddata, 0, size,
-                SocketFlags.None, serveraddr);
-            Console.WriteLine(
-                "[UDP 클라이언트] {0}바이트를 보냈습니다.", retval);
+            catch (Exception e) {
+                Console.WriteLine(e);
+                return false;
+            }
+            return true;
         }
 
         public void SendOK(int num)
@@ -136,7 +147,7 @@ namespace Client
             }
         }
 
-        public int Read()
+        public bool Read()
         {
             try
             {
@@ -145,6 +156,10 @@ namespace Client
                 EndPoint peeraddr = (EndPoint)anyaddr;
                 retval = sock.ReceiveFrom(buf, BUFSIZE,
                     SocketFlags.None, ref peeraddr);
+
+                sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss") + " => "
+                     + $"{"RECIVE",-15} IP : {serveraddr.Address,-15} PORT : {serveraddr.Port,-10} TOKEN:{'\n'}{Encoding.Default.GetString(buf, 0, retval)}");
+                sw.Flush();
 
                 // 받은 데이터 출력
                 Console.WriteLine(
@@ -156,17 +171,19 @@ namespace Client
 
                 //JSON 파싱
                 jsonData = JObject.Parse(receiveToken);
-                string jtoken = jsonData["응답 TOKEN"].ToString();
+                string jtoken = jsonData["TOKEN"].ToString();
                 string[] tokens = jtoken.Split('-');
 
+                tcpPort = int.Parse(tokens[2]);
+
                 if (token2.Equals(tokens[0]) && token1.Equals(tokens[4]))
-                    return 1;    
+                    return true;    
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
             }
-            return 0;
+            return false;
         }
 
         public void Close()

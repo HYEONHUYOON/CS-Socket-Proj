@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 
 namespace Client
 {
@@ -25,6 +26,8 @@ namespace Client
 
             bool isClose;
 
+            int tcpPORT;
+
             while (true)
             {
                 UDPclient = new UDPClient();
@@ -32,38 +35,39 @@ namespace Client
                 //UDP를 통한 TCP 접속시도
                 while (true)
                 {
-                    IP = cli.QIP();
-                    PORT = cli.QPORT();
+                    while (true) {
+                        IP = cli.QIP();
+                        PORT = cli.QPORT();
 
-                    UDPclient.trySend(IP, PORT);
-                    int chek = UDPclient.Read();
-                    UDPclient.SendOK(1);
-                    if (chek == 1)
-                    {
-                        break;
+                        bool connect = UDPclient.trySend(IP, PORT);
+                        if(connect)break;
                     }
+                    bool check = UDPclient.Read();
+                    if(check) { 
+                    UDPclient.SendOK(1);
+                        }
+                    if (check == true)break;
                 }
 
+                tcpPORT = UDPclient.tcpPort;
                 UDPclient.Close();
 
                 TCPclient = new TCPClient();
-                connectStatus = TCPclient.Connect(IP);
+                connectStatus = TCPclient.Connect(IP, tcpPORT);
 
-                Console.WriteLine("Enter 입력시 접속 종료");
                 if (connectStatus)
                 {
                     while (true)
                     {
-                        isClose = TCPclient.Write();
-                        isClose = TCPclient.Read();
-                        //Enter시 접속 종료
-                        if (!isClose)
+                        //isClose = TCPclient.Write();
+                        if (TCPclient.Read())
                         {
-                            TCPclient.Read();
-                            TCPclient.Close();
                             break;
                         }
                     }
+                    TCPclient.Close();
+
+                    Console.WriteLine("서버와 통신이 종료");
                 }
                 else
                 {
